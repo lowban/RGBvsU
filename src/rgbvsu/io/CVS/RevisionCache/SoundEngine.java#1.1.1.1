@@ -1,0 +1,43 @@
+package rgbvsu.io;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import javax.sound.sampled.*;
+import rgbvsu.ResourceManager;
+
+
+/**
+ * A class which works as sound player
+ * @author Robin
+ */
+public class SoundEngine {
+
+    private ArrayList<Clip> loopingsounds;
+    
+    public SoundEngine() {
+        loopingsounds = new ArrayList<Clip>();
+    }
+    
+    public void playSound(String sound) {
+        Clip clip = ResourceManager.getSound(sound);
+        if(clip.isActive()){
+            clip.stop();
+        }
+        clip.setFramePosition(0);
+        clip.start();
+    }
+    
+    public void loopSound(String sound) {
+        Clip clip = ResourceManager.getSound(sound);
+        loopingsounds.add(clip);
+        clip.loop(Clip.LOOP_CONTINUOUSLY);
+        
+    }
+    
+    public void stopLoopingSounds(){
+        for(int i=0; i<loopingsounds.size();i++){
+            loopingsounds.get(i).stop();
+        }
+        loopingsounds.clear();
+    };
+}

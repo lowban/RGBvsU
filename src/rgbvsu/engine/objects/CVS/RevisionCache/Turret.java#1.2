@@ -1,0 +1,56 @@
+package rgbvsu.engine.objects;
+
+import java.awt.Graphics2D;
+import rgbvsu.ResourceManager;
+import rgbvsu.engine.World;
+import rgbvsu.engine.ai.Enemy;
+import rgbvsu.engine.util.AnimationSet;
+import rgbvsu.engine.util.Sprite;
+import rgbvsu.gui.GUI;
+
+
+/**
+ *
+ * @author Dauid
+ */
+public class Turret extends Enemy{
+
+    Sprite sprite;
+    public Turret(World world)
+    {
+        super(world,50,50);
+        AnimationSet set = new AnimationSet();
+        set.addAnimation(ResourceManager.getAnimation("turret.idle"));
+        set.addAnimation(ResourceManager.getAnimation("turret.fire"));        
+        sprite = new Sprite(set, 50,50);
+    }
+    
+    public void shoot(int originx, int originy, int shootx, int shooty){
+        ProjectilePhotonBolt bolt = new ProjectilePhotonBolt(getWorld(), (float) originx, (float) originy, (int) shootx, (int) shooty, (long) 1000);
+        getWorld().addProjectile(bolt);
+        GUI.getSoundEngine().playSound("turretFire");
+        getSprite().setAnimation("fire");
+    } 
+    
+    @Override
+    public Sprite getSprite()
+    {
+        return sprite;
+    }
+    
+    @Override
+    public void update(long time) {
+        sprite.update(time);
+    }
+
+    @Override
+    public void draw(int x, int y, Graphics2D g) {
+        sprite.draw(g, x+(int)getX(),y+(int)getY(), getRotation());
+    }
+
+    @Override
+    public void checkCollision(GameObject otherobj) {
+        //throw new UnsupportedOperationException("Not supported yet.");
+    }
+    
+}

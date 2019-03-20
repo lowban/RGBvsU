@@ -1,0 +1,144 @@
+package rgbvsu.engine.objects;
+
+import java.awt.Color;
+import java.awt.Point;
+import java.util.ArrayList;
+import rgbvsu.engine.World;
+import rgbvsu.engine.util.Sprite;
+
+public abstract class GameObject
+{
+	public enum Facing{ LEFT,RIGHT,UP,DOWN }
+
+	float x,y,width,height;
+	Color color;
+	World world;
+	Facing facing;
+	boolean alive, visible, enabled;
+        final double rotateUP=0,rotateLEFT = Math.PI*3/2,rotateRIGHT=Math.PI/2,rotateDOWN=Math.PI;
+	long visibleTimer, disabledTimer;
+        
+	public GameObject(World world, float width, float height)
+	{
+		x=y=0;
+		this.width = width;this.height = height;
+		this.world = world;
+		alive = visible = enabled = true;
+                facing = Facing.UP;
+	}	
+	
+	public void setColor(Color color){ this.color = color; }
+	public Color getColor(){ return color; }
+	public World getWorld(){ return world; }
+	
+        public int getDrawX(){ return (int)x-(int)x%5;}
+        public int getDrawY(){ return (int)y-(int)y%5;}
+	public float getCenterX(){ return x+width/2; }
+	public float getCenterY(){ return y+height/2; }
+	public float getX(){ return x; }
+	public float getY(){ return y; }
+        public boolean isEnabled(){ return enabled; }
+        public boolean isVisible(){ return visible; }
+        public void setEnabled(boolean value){ enabled = value;}
+        public void setVisible(boolean value){ visible = value;}        
+	public void setX(float x){ this.x = x; }
+	public void setY(float y){ this.y = y; }
+	public void translate(float dx, float dy){ x+=dx;y+=dy;}
+        public void setToTranslation(float x, float y){setX(x);setY(y);}
+	public float getWidth(){ return width; }
+	public float getHeight(){ return height; }
+        public Facing getFacing(){ return facing; }        
+        
+        public void setFacing(int dx, int dy)
+        {
+              
+            if(dx==0)
+                if(dy==1)
+                    facing = Facing.DOWN;
+                else
+                    facing = Facing.UP;
+            else{ 
+                if(dy==1)
+                    facing = Facing.RIGHT;
+                else{
+                    facing = Facing.LEFT;      
+                }
+            }
+        }
+        
+        public Point getFacingOffset()
+        {
+            int dx = 0,dy = 0;
+            if(facing == Facing.RIGHT)
+                dx = 1;
+            else if(facing == Facing.LEFT)
+                dx = -1;
+            else if(facing == Facing.UP)
+                dy = -1;
+            else if(facing == Facing.DOWN)
+                dy = 1;
+            return new Point(dx,dy);
+        }
+        
+        public double getRotation()
+        {
+            switch(facing)
+            {
+                case UP:
+                    return rotateUP;
+                case DOWN:
+                    return rotateDOWN;
+                case LEFT:
+                    return rotateLEFT;
+                case RIGHT:
+                    return rotateRIGHT;
+                default:
+                    return 0;
+            }
+        }
+	
+        public void setDisabledTimer(long time){disabledTimer = time;setEnabled(false);}
+        public void setVisibleTimer(long time){visibleTimer = time;setVisible(false);}
+    
+	public boolean inAxisView(GameObject otherObj)
+	{
+		float x=0, y=0,width=0, height=0;
+		if( otherObj.getX() < getX()+getWidth() && otherObj.getX() + otherObj.getWidth() > getX() )
+		{
+			x = getCenterX() < otherObj.getCenterX() ? getCenterX() : otherObj.getCenterX();
+			y = getCenterY() < otherObj.getCenterY() ? getCenterY() : otherObj.getCenterY();
+			width = 1;
+			height = Math.abs(getCenterY()-otherObj.getCenterY());
+		}
+		else if( otherObj.getY() < getY()+getHeight() && otherObj.getY() + otherObj.getHeight() > getY() )
+		{
+			x = getCenterX() < otherObj.getCenterX() ? getCenterX() : otherObj.getCenterX();
+			y = getCenterY() < otherObj.getCenterY() ? getCenterY() : otherObj.getCenterY();
+			width = Math.abs(getCenterX()-otherObj.getCenterX());;
+			height = 1;
+		}
+		else
+		{
+			return false;
+		}
+		ArrayList<GameObject> list = world.getCurrentRoom().getObjectsInRect(x,y,width,height);
+		return list.size() == 1;
+	}
+        
+	public void kill(){ alive = false; }
+	public boolean alive(){ return alive; }
+	
+	public void update(long time)
+        {
+            //Update timers
+            if(disabledTimer > 0) disabledTimer -= time; 
+            else setEnabled(true);
+
+            if(visibleTimer > 0) visibleTimer -= time;
+            else setVisible(true);
+                
+        }
+        public abstract Sprite getSprite();
+	public abstract void draw(int x, int y, java.awt.Graphics2D g);
+	public abstract void checkCollision(GameObject otherobj);
+}

@@ -1,0 +1,44 @@
+package rgbvsu.engine.objects;
+
+import java.awt.Graphics2D;
+import rgbvsu.engine.World;
+import rgbvsu.engine.ai.Enemy;
+import rgbvsu.engine.util.CollisionMath;
+import rgbvsu.engine.util.Sprite;
+
+/**
+ *
+ * @author Robin Horneman
+ */
+public class StupidDroid extends Enemy {
+    public StupidDroid(World world, float w, float h)
+	{
+		super(world,w,h);
+	}
+
+        @Override
+        public Sprite getSprite()
+        {
+            return null;
+        }	
+        
+        @Override
+	public void checkCollision(GameObject otherobj)
+	{
+		if(CollisionMath.Intersects(this, otherobj))
+			getAI().collisionResponse(otherobj);
+	}
+	
+        @Override
+	public void update(long time)
+	{
+		
+	}
+	
+        @Override
+	public void draw(int x, int y, Graphics2D g)
+	{
+		g.setColor(getColor());
+		g.fillOval((int)(x+getX()),(int)(y+getY()), (int)getWidth(), (int)getHeight());
+	}
+}

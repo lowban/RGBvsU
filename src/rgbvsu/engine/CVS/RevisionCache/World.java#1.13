@@ -1,0 +1,380 @@
+package rgbvsu.engine;
+
+import java.awt.Graphics2D;
+import java.util.ArrayList;
+import rgbvsu.ResourceManager;
+import rgbvsu.engine.objects.*;
+import rgbvsu.engine.util.CollisionMath;
+import rgbvsu.gui.GUI;
+
+public class World
+{
+        //Constants
+        final long GAME_OVER_FADE_DELAY=1000;
+        final long GAME_OVER_RESET_DELAY=1000;
+        
+	//Instance variables
+	Room[][] rooms;
+	Room currentRoom, destinationRoom, lastRoom;
+	ArrayList<Projectile> projectiles;
+	Player player;
+	int width, height, cellWidth, cellHeight, numCellsX, numCellsY;
+        boolean gameStarted, gameOver, gameOverReset, fadeCheck, playerWasInCorridor;
+	
+        //Roomtransition variables
+        int roomTransitionCounter, playerTransitionOffset, roomTransitionSpeed;
+	int roomDestDiffX,roomDestDiffY;
+	boolean roomTransit;
+        
+        //Timers
+        long gameOverTimer;
+	
+	public World(int cellWidth, int cellHeight, int numCellsX, int numCellsY)
+	{
+            this.width = numCellsX*cellWidth;
+            this.height = numCellsY*cellHeight;
+            this.cellWidth = cellWidth;
+            this.cellHeight = cellHeight;
+            this.numCellsX = numCellsX;
+            this.numCellsY = numCellsY;
+
+            roomTransitionSpeed = 10;
+            
+            gameOverTimer = 0;
+            
+            roomTransit = false;
+            gameStarted = false; 
+            fadeCheck = false;
+
+            projectiles = new ArrayList<>();
+	}
+	
+	public void setMap(Room[][] rooms)
+	{
+            this.rooms = rooms;
+	}
+	
+	//Getters
+	public boolean isGameStarted(){ return gameStarted; }
+	public int getNumRoomsX(){ return rooms.length; }
+	public int getNumRoomsY(){ return rooms[0].length; }
+        public int getCellWidth(){ return cellWidth; }
+        public int getCellHeight(){ return cellHeight; }
+        public int getNumCellsX(){ return numCellsX; }
+        public int getNumCellsY(){ return numCellsY; }
+	public Room getRoom(int x, int y){ return rooms[x][y];}
+	public Room getCurrentRoom(){ return currentRoom; }
+        public Room getLastRoom(){ return lastRoom; }
+	public Player getPlayer(){ return player; }
+	public int getWidth(){ return width; }
+	public int getHeight(){ return height; }	
+        
+        public boolean isSpaceAvailable(float x, float y)
+        {
+            if(x<=0||y<=0||x>=width||y>=height)
+                return false;
+            ArrayList<GameObject> objects = currentRoom.getObjectsAt(x, y, null);
+            for(int i = 0;i<objects.size();i++)
+                if(!objects.get(i).isPassable())
+                    return false;
+            return true;
+        }
+        
+	public boolean checkPossibleCollision(GameObject obj1, GameObject obj2)                
+        {
+            if(!obj1.alive() || !obj2.alive())
+                return false;
+            if(CollisionMath.Intersects(obj1,obj2))
+                return true;
+            else
+                return false;
+            
+        }
+	
+	public void newGame()
+	{
+            gameStarted = true;
+            gameOver = gameOverReset = false;
+            GUI.dialogue.setDialogue(ResourceManager.getDialogue(1));
+            setRoom(currentRoom.getX(),currentRoom.getY());
+            setRoom(8,5);
+            player.addForm(new RobotFormPush(player));
+            player.addForm(new RobotFormCrush(player));
+            //player.setToTranslation(240,0);//Top
+            player.setToTranslation(0,240);//Left
+	}	
+	
+        public void gameOver()
+        {
+            gameOver = true;
+            projectiles.clear();
+        }
+        
+	public void createPlayer(int roomX, int roomY, int x, int y)
+        {
+            if(!gameStarted)
+            {
+                player = new Player(this);
+                player.translate(x*getCellWidth(),y*getCellHeight());
+                setRoom(roomX, roomY);
+                currentRoom.setDiscovered(true);
+                currentRoom.setFinished(true);
+            }
+	}		
+
+	public void addProjectile(Projectile p)
+	{
+            projectiles.add(p);
+	}
+	
+	public void setRoom(int x, int y)
+	{
+            
+            if( currentRoom == null)
+                currentRoom = lastRoom = rooms[x][y];                
+            else
+            {                
+                roomTransit = false;
+            	lastRoom = currentRoom;
+                currentRoom = rooms[x][y];
+                destinationRoom = null;				
+                roomTransitionCounter = 0;
+                playerTransitionOffset = 0;                                                
+                
+                if(currentRoom.hasOnEnterDialogue())
+                   GUI.dialogue.setDialogue(ResourceManager.getDialogue(currentRoom.getEnterDialogue()));
+                if(!lastRoom.isFinished())                           
+                    lastRoom.resetRoom();
+            }       
+            
+            if(currentRoom.getMusic().length() > 0)
+                    GUI.getSoundEngine().playMusic(currentRoom.getMusic());
+	}        	
+	
+        
+        public void changeRoom(Room room)
+        {
+            
+            destinationRoom = room;
+            roomDestDiffX = room.getX()-currentRoom.getX();
+            roomDestDiffY = room.getY()-currentRoom.getY();
+            roomTransit = true;
+            projectiles.clear();
+            //Switch player position
+
+            if(roomDestDiffX != 0)
+            	player.setX((getWidth()-player.getWidth())*0.5f-(getWidth()-player.getWidth())*roomDestDiffX*0.5f);
+            if(roomDestDiffY != 0)
+		player.setY((getHeight()-player.getHeight())*0.5f-(getHeight()-player.getHeight())*roomDestDiffY*0.5f);
+            
+            playerTransitionOffset = roomTransitionCounter = 0;
+        }
+                       
+	public void checkCollisions()
+	{
+            //Doors
+            if(!roomTransit)
+            {
+
+            boolean playerInCorridor =(player.getY() > (getHeight()-Room.DOORSIZE)*0.5f &&
+                                        player.getY()+player.getHeight() < (getHeight()+Room.DOORSIZE)*0.5f) ||
+                                        (player.getX() > (getWidth()-Room.DOORSIZE)*0.5f &&
+                                        player.getX()+player.getWidth() < (getWidth()+Room.DOORSIZE)*0.5f);
+
+            boolean playerOutsideLeftBounds = player.getX() < 0;
+            boolean playerOutsideRightBounds = player.getX() + player.getWidth() > getWidth();
+            float upperHorizontalCorridorWall = (getHeight()+Room.DOORSIZE)*0.5f;
+            float lowerHorizontalCorridorWall = (getHeight()-Room.DOORSIZE)*0.5f;
+
+            boolean playerOutsideTopBounds = player.getY() < 0;
+            boolean playerOutsideBottomBounds = player.getY()+player.getHeight() > getHeight();
+            float rightVerticalCorridorWall = (getWidth()+Room.DOORSIZE)*0.5f;
+            float leftVerticalCorridorWall = (getWidth()-Room.DOORSIZE)*0.5f;
+
+
+            if( (playerWasInCorridor && !playerInCorridor) && 
+                    ((playerOutsideLeftBounds && currentRoom.isDoorOpened(Room.LEFT)) ||
+                        (playerOutsideRightBounds && currentRoom.isDoorOpened(Room.RIGHT))))
+            {        
+                playerInCorridor = true;
+                if(player.getY() < lowerHorizontalCorridorWall)
+                    player.setY(lowerHorizontalCorridorWall);
+                else if(player.getY() + player.getHeight() > upperHorizontalCorridorWall)
+                    player.setY(upperHorizontalCorridorWall-player.getHeight());                    
+                }
+                else if( playerOutsideLeftBounds && !(currentRoom.isDoorOpened(Room.LEFT) && playerInCorridor))                          
+                    player.setX(0);                                
+                else if(playerOutsideRightBounds && !(currentRoom.isDoorOpened(Room.RIGHT) && playerInCorridor) )
+                    player.setX(getWidth()-player.getWidth());
+
+                if( (playerWasInCorridor && !playerInCorridor) && 
+                        ( (playerOutsideTopBounds && currentRoom.isDoorOpened(Room.TOP) ) ||
+                            (playerOutsideBottomBounds && currentRoom.isDoorOpened(Room.BOTTOM))))
+                {          
+                    playerInCorridor = true;
+                    if(player.getX() < leftVerticalCorridorWall)
+                        player.setX(leftVerticalCorridorWall);
+                    else if(player.getX() + player.getWidth() > rightVerticalCorridorWall)
+                        player.setX(rightVerticalCorridorWall-player.getWidth());                    
+                }                
+                else if( playerOutsideTopBounds && !(playerInCorridor && currentRoom.isDoorOpened(Room.TOP)))                          
+                    player.setY(0);                             
+                else if(playerOutsideBottomBounds && !(playerInCorridor && currentRoom.isDoorOpened(Room.BOTTOM)) )
+                    player.setY(getHeight()-player.getHeight());
+
+                playerWasInCorridor = playerInCorridor;
+
+                if(player.getCenterX()-player.getWidth() > getWidth())
+                    currentRoom.enterDoor(Room.RIGHT);
+                else if(player.getCenterX()+player.getWidth() < 0)
+                    currentRoom.enterDoor(Room.LEFT);
+                else if(player.getCenterY()-player.getHeight() > getHeight())
+                    currentRoom.enterDoor(Room.BOTTOM);
+                else if(player.getCenterY()+player.getHeight() < 0)
+                    currentRoom.enterDoor(Room.TOP);
+
+
+            }
+
+            //Objects for possible collisions
+            boolean playerChecked = false;
+            ArrayList<GameObject> objects = currentRoom.getObjects();
+            for(int i = 0;i< objects.size();i++)
+            {
+                GameObject object1 = objects.get(i);
+                for(int j = i+1; j < objects.size();j++)
+                {
+                    GameObject object2 = objects.get(j);
+                    if( checkPossibleCollision( object1, object2 ) )
+                            object1.checkCollision(object2);
+                }
+                if(checkPossibleCollision(player, object1))
+                        player.checkCollision( object1 );
+
+                for(int j = 0;j<projectiles.size();j++)
+                {
+                    GameObject projectile = projectiles.get(j);
+                    if( checkPossibleCollision(object1, projectile) )
+                        object1.checkCollision( projectile );
+                    if( !playerChecked && checkPossibleCollision(player, projectile))				
+                        player.checkCollision( projectile );				
+                }			
+
+                playerChecked = true;
+            }            
+	}	
+	
+	public void update(long time)
+	{         
+            
+            if(gameOver)
+            {
+                player.getSprite().update(time);
+                if(GUI.isFading())
+                {
+                    boolean isFadedOut = GUI.isFadedOut();
+                    
+                    if(isFadedOut && !fadeCheck)
+                    {
+                        if(!currentRoom.isFinished())
+                            currentRoom.resetRoom();
+                        int dxRoom = lastRoom.getX()-currentRoom.getX();
+                        int dyRoom = lastRoom.getY()-currentRoom.getY();
+                        float playerposX = (getWidth()-getPlayer().getWidth())*(1+dxRoom)*0.5f;                        
+                        float playerposY = (getHeight()-getPlayer().getHeight())*(1+dyRoom)*0.5f;
+                        
+                        player.setToTranslation(playerposX, playerposY);
+                        player.setHP(player.getMaxHP());
+                        player.getSprite().setAnimation("idle");
+                        player.setFacing(-dxRoom,-dyRoom);
+                        player.setEnabled(true);
+                        
+                        gameOver = false;
+                        gameOverReset = true;
+                    }
+                    
+                    fadeCheck = isFadedOut;
+                }
+                else
+                {                    
+                    gameOverTimer += time;
+                    if(gameOverTimer >= GAME_OVER_FADE_DELAY)
+                    {
+                        GUI.fadeOutAndIn(1500);
+                        fadeCheck = true;
+                        gameOverTimer = 0;
+                    }
+                }
+            }
+            else if(gameOverReset)
+            {
+                gameOverTimer += time;
+                if(gameOverTimer >= GAME_OVER_RESET_DELAY)
+                {
+                    gameOverReset = false;
+                    gameOverTimer = 0;
+                }
+            }
+            else if(!roomTransit)
+            {
+                currentRoom.update(time);
+
+                for(int i = 0;i<projectiles.size();i++)
+                {
+                    projectiles.get(i).update(time);
+                    if(projectiles.get(i).isMarkedForRemoval())
+                        projectiles.remove(i);
+                }   
+                player.update(time);
+            }
+          
+	}
+	
+
+	
+	public void render(int x, int y,Graphics2D g)
+	{
+            //Render Room Transition
+            if(roomTransit)
+            {	
+                //Increase counter
+                roomTransitionCounter+=roomTransitionSpeed;
+
+                //Calculate positions during transition and render
+                int destRoomX = x+(GUI.getWidth()-roomTransitionCounter)*roomDestDiffX;
+                int destRoomY = y+(GUI.getHeight()-roomTransitionCounter)*roomDestDiffY;
+                int currRoomX = x-roomTransitionCounter*roomDestDiffX;
+                int currRoomY = y-roomTransitionCounter*roomDestDiffY;                        
+
+                destinationRoom.draw( destRoomX, destRoomY, g);
+                currentRoom.draw( currRoomX, currRoomY, g);
+                player.draw( destRoomX, destRoomY , g);
+                currentRoom.drawOverlay(currRoomX, currRoomY,g);
+                destinationRoom.drawOverlay(destRoomX,destRoomY,g);
+                //Destination reached, reset variables
+                if(roomTransitionCounter>=Math.abs(GUI.getWidth()*roomDestDiffX+GUI.getHeight()*roomDestDiffY))
+                {
+                    
+                    setRoom(destinationRoom.getX(),destinationRoom.getY());
+  
+                }
+            }
+            //Render Normally
+            else
+            {
+                //Draw Room
+                currentRoom.draw(x,y,g);
+
+                //Draw projectiles
+                for(int i = 0;i<projectiles.size();i++)
+                {
+                    projectiles.get(i).draw(x,y,g);
+                }
+                
+                //Draw player
+                player.draw(x,y,g);
+
+                currentRoom.drawOverlay(x,y,g);
+            }
+        }
+}

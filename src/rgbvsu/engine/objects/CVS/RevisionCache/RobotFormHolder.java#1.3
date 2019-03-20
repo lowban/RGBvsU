@@ -1,0 +1,68 @@
+package rgbvsu.engine.objects;
+
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.Image;
+import rgbvsu.ResourceManager;
+import rgbvsu.engine.World;
+import rgbvsu.engine.util.Sprite;
+import rgbvsu.gui.GUI;
+
+/**
+ *
+ * @author Dauid
+ */
+public class RobotFormHolder extends GameObject{
+    public static final int PUSH=0,CRUSH=1,FIRE=2;
+    
+    int type;
+    Image image;
+    public RobotFormHolder(World world, int type)
+    {
+        super(world, 50,50);
+        this.type = type;
+        switch(type)
+        {
+            case PUSH:
+                image = ResourceManager.getImage("objects.player.holderPush");
+                break;
+            case CRUSH:
+                image = ResourceManager.getImage("objects.player.holderCrush");
+                break;
+        }        
+    }
+    @Override
+    public Sprite getSprite() {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    @Override
+    public void draw(int x, int y, Graphics2D g) {
+        g.drawImage(image,x+(int)getX(),y+(int)getY(),null);
+    }
+
+    @Override
+    public void checkCollision(GameObject otherobj) 
+    {
+        if(!alive())
+            return;
+        if(isEnabled())
+            if( otherobj instanceof Player)
+            {
+                Player player = (Player)otherobj;
+                switch(type)
+                {
+                    case PUSH:                        
+                        player.addForm(new RobotFormPush(otherobj));                        
+                        break;
+                    case CRUSH:
+                        System.out.println("CRUSH");
+                        player.addForm(new RobotFormCrush(otherobj));
+                        break;
+                }
+                setEnabled(false);
+                kill();
+                GUI.getSoundEngine().playSound("pickup");
+            }
+    }    
+}

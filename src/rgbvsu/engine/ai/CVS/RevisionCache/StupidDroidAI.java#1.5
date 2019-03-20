@@ -1,0 +1,76 @@
+package rgbvsu.engine.ai;
+
+import java.awt.Point;
+import java.util.ArrayList;
+import java.util.Random;
+import rgbvsu.engine.objects.GameObject;
+import rgbvsu.engine.objects.StupidDroid;
+
+/**
+ *
+ * @author Robin Horneman
+ */
+public class StupidDroidAI extends AI {
+
+    private int AItime = 100;
+    private int state = 0;
+    private int speed = 1;
+    private float destinationX = getGameObject().getX();
+    private float destinationY = getGameObject().getY();
+    private Random generator = new Random();
+
+    public StupidDroidAI(StupidDroid droid) {
+        super(droid);
+        droid.setAI(this);
+    }
+
+    @Override
+    public void collisionResponse(GameObject otherobj) {
+
+    }
+
+    @Override
+    public void update(long time) {
+        GameObject owner = getGameObject();
+        int ownerx = (int) owner.getX();
+        int ownery = (int) owner.getY();
+
+        //System.out.println("ownerx: " + (int) owner.getX() + " ownery: " + (int) owner.getY());
+        //System.out.println("destX: " + destinationX + " destY: " + destinationY);
+        if (ownerx == destinationX && ownery == destinationY) {
+            AITick();
+        }
+
+        Point facingOffset = owner.getFacingOffset();        
+        owner.translate(facingOffset.x*speed,facingOffset.y*speed);
+    }
+
+    private void AITick() {
+        //System.out.println("AI-tick!");
+        GameObject owner = getGameObject();
+        GameObject player = owner.getWorld().getPlayer();
+        
+        //Walk aimlessly
+        ArrayList<GameObject.Facing> directions = checkFreeDirections();
+
+        int randomIndex = (int)(Math.random()*directions.size());
+        Point facingOffset = GameObject.getFacingOffset(directions.get(randomIndex));
+        owner.setFacing(directions.get(randomIndex));
+        destinationX = owner.getX()+facingOffset.x*owner.getWidth();
+        destinationY = owner.getY()+facingOffset.y*owner.getHeight(); 
+    }
+
+    private ArrayList<GameObject.Facing> checkFreeDirections(){
+        GameObject owner = getGameObject();        
+        ArrayList<GameObject.Facing> freedirs = new ArrayList<>();
+        if(owner.getWorld().isSpaceAvailable(owner.getCenterX()-owner.getWidth(),owner.getCenterY()))
+            freedirs.add(GameObject.Facing.LEFT);
+        if(owner.getWorld().isSpaceAvailable(owner.getCenterX()+owner.getWidth(),owner.getCenterY()))
+            freedirs.add(GameObject.Facing.RIGHT);
+        if(owner.getWorld().isSpaceAvailable(owner.getCenterX(),owner.getCenterY()-owner.getHeight()))
+            freedirs.add(GameObject.Facing.UP);
+        if(owner.getWorld().isSpaceAvailable(owner.getCenterX(),owner.getCenterY()+owner.getHeight()))
+            freedirs.add(GameObject.Facing.DOWN);
+        return freedirs;
+    }
+}

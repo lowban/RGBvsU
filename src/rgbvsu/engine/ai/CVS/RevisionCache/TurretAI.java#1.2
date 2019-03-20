@@ -1,0 +1,98 @@
+package rgbvsu.engine.ai;
+
+import java.awt.Point;
+import rgbvsu.engine.objects.GameObject;
+import rgbvsu.engine.objects.Turret;
+
+public class TurretAI extends AI {
+
+    int AItime = 100;
+    static int shotCoolDown = 1000;
+    int elapsed = 0; int projectileSpeed = 1;
+    boolean seeing = false; boolean hasShot = false;
+    Turret turret;
+    
+    public TurretAI(Turret turret) {
+        super(turret);
+        this.turret = turret;
+        this.turret.setAI(this);
+    }
+
+    @Override
+    public void collisionResponse(GameObject otherobj) {
+        //Add collision responses here	
+    }
+
+    @Override
+    public void update(long time) {
+        //Add AI-logic here
+        if (time < AItime) {
+            if(hasShot){
+                elapsed+=time;
+            }
+     
+            GameObject owner = getGameObject();
+            GameObject player = owner.getWorld().getPlayer();
+            int playerx = (int) player.getX();
+            int playery = (int) player.getY();
+            int ownerx = (int) owner.getX();
+            int ownery = (int) owner.getY();
+            //Choose direction
+            setBestFacing(playerx, playery, ownerx, ownery, owner);
+            //SHOOT?
+            if ((playerx + player.getWidth() > ownerx && playerx < ownerx + owner.getWidth())
+                    || (playery + player.getHeight() > ownery && playery < ownery + owner.getHeight())) {
+                seeing = true;
+                
+                if (seeing && !hasShot) {
+                    Point facingOffset = owner.getFacingOffset();
+                    turret.shoot((int)(owner.getCenterX() + facingOffset.x*10),
+                                 (int)(owner.getCenterY() + facingOffset.y*10),
+                                facingOffset.x * projectileSpeed, 
+                                facingOffset.y * projectileSpeed);
+                    hasShot = true;
+                }
+                if(hasShot && elapsed>shotCoolDown){
+                    elapsed = 0;
+                    hasShot = false;
+                }
+                
+            }
+        }
+    }
+
+    /*
+     * HELPER METHODS*************
+     */
+    private void setBestFacing(int px, int py, int ownx, int owny, GameObject owner) {
+        int diffX = px - ownx;
+        int diffY = py - owny;
+        //Left or Right?
+        if (abs(diffX) > abs(diffY)) {
+            if (diffX < 0) {
+                owner.setFacing(1, 0);
+            } else {
+                owner.setFacing(1, 1);
+            }
+        } //Up or Down?
+        else {
+            if (diffY < 0) {
+                owner.setFacing(0, 1);
+            } else {
+                owner.setFacing(0, 0);
+            }
+
+        }
+
+    }
+
+    private int abs(int number) {
+        if (number < 0) {
+            return -number;
+        } else {
+            return number;
+        }
+    }
+    
+   
+}

@@ -1,0 +1,25 @@
+package rgbvsu.engine.ai;
+
+import rgbvsu.engine.objects.GameObject;
+import rgbvsu.engine.objects.PatrolDroid;
+
+public class PatrolDroidAI extends AI
+{
+	public PatrolDroidAI(PatrolDroid droid)
+	{
+		super(droid);
+		droid.setAI(this);
+	}
+        
+	@Override
+	public void collisionResponse(GameObject otherobj)
+	{
+            //Add collision responses here	
+	}
+	
+        @Override
+	public void update(long time)
+	{	
+            //Add AI-logic here
+	}
+}

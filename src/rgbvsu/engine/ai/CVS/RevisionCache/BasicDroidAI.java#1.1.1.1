@@ -1,0 +1,43 @@
+package rgbvsu.engine.ai;
+
+import rgbvsu.engine.objects.BasicDroid;
+import rgbvsu.engine.objects.GameObject;
+
+public class BasicDroidAI extends AI
+{
+        private int AItime = 100;
+	public BasicDroidAI(BasicDroid droid)
+	{
+		super(droid);
+		droid.setAI(this);
+	}
+        
+	@Override
+	public void collisionResponse(GameObject otherobj)
+	{
+            //Add collision responses here	
+	}
+	
+        @Override
+	public void update(long time)
+	{	
+            //Add AI-logic here
+            
+            int speed = 1;
+            //CHASE 
+            GameObject owner = getGameObject();
+            GameObject player = owner.getWorld().getPlayer();
+            if(owner.getX()<player.getX()){
+                owner.setX(owner.getX()+speed);
+            }
+            else if(owner.getX()>player.getX()){
+                owner.setX(owner.getX()-speed);
+            }
+            if(owner.getY()<player.getY()){
+                    owner.setY(owner.getY()+speed);
+            }
+            else if(owner.getY()>player.getY()){
+                owner.setY(owner.getY()-speed);
+            }
+	}
+}

@@ -1,0 +1,461 @@
+package rgbvsu.gui;
+
+import java.awt.*;
+import java.awt.event.KeyEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.awt.image.BufferStrategy;
+import java.io.File;
+import java.io.FilenameFilter;
+import java.io.IOException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.sound.sampled.*;
+import javax.swing.ImageIcon;
+import javax.swing.JFrame;
+import javax.swing.WindowConstants;
+import rgbvsu.ResourceManager;
+import rgbvsu.engine.World;
+import rgbvsu.engine.util.Animation;
+import rgbvsu.input.InputManager;
+import rgbvsu.io.DialogueLoader;
+import rgbvsu.io.MapLoader;
+import rgbvsu.io.SaveLoadSystem;
+import rgbvsu.io.SoundEngine;
+
+public class GUI
+{
+	public final int MENU_SCREEN=0,GAME_SCREEN=1;	
+        
+	boolean running, windowed;
+	long startTime, elapsedTime, lastTime, currentTime;
+		
+	int currentScreen;
+	
+
+	World world;
+	InputManager input;
+        MenuManager menuManager;
+        SaveLoadSystem saveLoadSystem;
+	static MapLoader mapLoader;
+	static HUD hud;
+	static JFrame frame;
+        static SoundEngine soundEngine;
+	
+        static int width,height,offset;
+        
+        private int worldWidth = 550;
+        private int worldHeight = 550;
+        private int hudHeight = 100;
+        private int wallThickness = 75;
+        private int cellWidth = 50;
+        private int cellHeight = 50;
+        private int numCells = worldWidth/cellWidth;  
+        
+        public static Dialogue dialogue = new Dialogue();
+        public DialogueLoader diagLoader;
+               
+	public GUI()
+	{                
+		offset = wallThickness; 
+                width = worldWidth+offset*2; 
+                height = worldHeight+offset*2; 
+		hud = new HUD(this, width, hudHeight);		                                
+		
+                frame = new JFrame("RBG Vs. U");
+		frame.addWindowListener(new FrameClose());
+                frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+		frame.getContentPane().setPreferredSize(new Dimension(width,height+hud.getHeight()));
+		windowed = false;
+		if(!windowed)
+			frame.setUndecorated(true);
+		
+		frame.setSize(width, height+hud.getHeight());
+		frame.pack();
+		frame.setResizable(false);
+                frame.setIgnoreRepaint(true);
+		frame.setVisible(true);
+
+		input = new InputManager();
+		frame.addKeyListener(input);	
+                
+                saveLoadSystem = new SaveLoadSystem(frame);
+                soundEngine = new SoundEngine();
+                diagLoader = new DialogueLoader("Dialogues.txt");
+	}
+	
+	
+	public static int getScreenHeight(){ return frame.getHeight(); }
+	public static int getWidth(){ return width; }
+	public static int getHeight(){ return height; }
+	public static int getOffset(){ return offset; }
+	public static MapLoader getMapLoader(){ return mapLoader; }
+        public static SoundEngine getSoundEngine(){ return soundEngine; }
+	public World getWorld(){ return world; }
+        public SaveLoadSystem getSaveLoadSystem(){ return saveLoadSystem; }
+        public MenuManager getMenuManager(){ return menuManager; }
+        public Dialogue getDialogue(){return dialogue;}
+
+	public void initMenus()
+	{
+            menuManager = new MenuManager();
+            menuManager.addMenu( new MainMenu(this) );
+            menuManager.addMenu( new LoadMenu(this) );
+		
+	}
+        
+        public Image loadImage(File file)
+        {
+            return new ImageIcon(file.getAbsolutePath()).getImage();
+        }
+        
+        public Clip loadSound(String path)
+        {   
+            AudioInputStream audioIn = null;
+            try {
+                audioIn = AudioSystem.getAudioInputStream(new File(path));
+                // Get a sound clip resource.
+                Clip clip = AudioSystem.getClip();
+                // Open audio clip and load samples from the audio input stream.
+                clip.open(audioIn);
+                return clip;
+            } 
+            catch(UnsupportedAudioFileException | IOException | LineUnavailableException ex)
+            {
+                ex.printStackTrace();
+            }
+            return null;
+        }
+        
+        private void loadSounds()
+        {
+            //Get sounds directory
+            File file = new File("resources/sounds");
+            
+            //get all wavefiles
+            String[] files = file.list( new FilenameFilter(){
+                public boolean accept(File dir, String name) {
+                    return name.endsWith("wav");
+                }
+            });
+            
+            for(int i = 0;i<files.length;i++)
+            {
+                String name = files[i].replaceAll(".wav", "");  
+                ResourceManager.addSound(name,loadSound("resources/sounds/"+files[i]));
+            }
+        }
+        
+        private void loadImagesInDirectory(File directory)
+        {
+            //Ignore CVS folder
+            if(directory.getName().equals("CVS"))
+                return;
+            //Get files and directories
+            File[] files = directory.listFiles();
+            
+            //No files or directories
+            if(files == null)
+                return;
+            
+            for(int i = 0;i<files.length;i++)
+            {
+                //If file is a directory, call recursivley
+                if(files[i].isDirectory())
+                    loadImagesInDirectory(files[i]);
+                //file found, load image
+                else
+                {
+                    if(files[i].getPath().endsWith(".PNG"))
+                    {
+                        String key = files[i].getPath().replaceAll(".PNG", "").replaceAll("resources","").replaceAll("images","");
+                        key = key.replace("\\", ".");
+                        key = key.substring(2,key.length());
+                        ResourceManager.addImage(key, loadImage(files[i]));
+                    }
+                }
+            }
+        }
+        
+        private void loadImages()
+        {
+            File file = new File("resources/images");
+            
+            File[] files = file.listFiles();
+            for(int i = 0;i<files.length;i++)
+            {                
+                loadImagesInDirectory(files[i]);
+            }            
+        }
+        
+        
+        private void loadDoor(String door)
+        {            
+            Image opened = ResourceManager.getImage("room.door"+door);                    
+            Image closed = ResourceManager.getImage("room.door"+door+"Closed");
+            Image disabled = ResourceManager.getImage("room.wall"+door);
+            Image anim1 = ResourceManager.getImage("room.door"+door+"1");
+            Image anim2 = ResourceManager.getImage("room.door"+door+"2");
+            Image anim3 = ResourceManager.getImage("room.door"+door+"3");
+            Image anim4 = ResourceManager.getImage("room.door"+door+"4");
+            Image anim5 = ResourceManager.getImage("room.door"+door+"5");
+            
+            Animation anim = new Animation("idle.opened");
+            anim.addFrame(opened, 0);
+            ResourceManager.addAnimation("door"+door+".idle.opened", anim);
+            
+            anim = new Animation("idle.closed");
+            anim.addFrame(closed, 0);
+            ResourceManager.addAnimation("door"+door+".idle.closed", anim);
+            
+            anim = new Animation("disabled");
+            anim.addFrame(disabled, 0);
+            ResourceManager.addAnimation("door"+door+".disabled", anim);
+            
+            anim = new Animation("open");
+            anim.addFrame(anim1, 50);
+            anim.addFrame(anim2, 50);
+            anim.addFrame(anim3, 50);
+            anim.addFrame(anim4, 50);
+            anim.addFrame(anim5, 50);
+            ResourceManager.addAnimation("door"+door+".open", anim);
+            
+            anim = new Animation("close");
+            anim.addFrame(anim5, 50);
+            anim.addFrame(anim4, 50);
+            anim.addFrame(anim3, 50);
+            anim.addFrame(anim2, 50);
+            anim.addFrame(anim1, 50);            
+            ResourceManager.addAnimation("door"+door+".close", anim);
+
+        }
+        
+        public void loadAnimation(String animationName, String key, String path, int numFrames, int frameDuration, boolean loop)
+        {
+            Animation temp = new Animation(animationName, loop);
+            if(numFrames > 1)
+                for(int i = 0;i<numFrames;i++)
+                    temp.addFrame( ResourceManager.getImage(path+(i+1)), frameDuration);
+            else
+                temp.addFrame( ResourceManager.getImage(path), 0);
+            ResourceManager.addAnimation(key, temp);
+        }
+        
+        public void loadAnimation(String animationName, String key, String path)
+        {
+            loadAnimation(animationName,key,path,1,0,false);
+        }
+        
+	public void initResources()
+	{
+            diagLoader.readDialogues();
+            Animation tempAnimation;
+
+            loadSounds();
+
+            loadImages();
+
+            loadDoor("Left");
+            loadDoor("Right");
+            loadDoor("Top");
+            loadDoor("Bottom");
+
+
+            /*Animations************************************************************/
+                tempAnimation = new Animation("idle", false);
+                tempAnimation.addFrame( ResourceManager.getImage("objects.turret.turretIdle"), 0);
+            ResourceManager.addAnimation("turret.idle", tempAnimation);
+
+                tempAnimation = new Animation("fire", false);                    
+                int framedur = 30;
+                tempAnimation.addFrame( ResourceManager.getImage("objects.turret.turretFire1"), framedur);
+                tempAnimation.addFrame( ResourceManager.getImage("objects.turret.turretFire3"), framedur);
+                tempAnimation.addFrame( ResourceManager.getImage("objects.turret.turretFire2"), framedur);
+                tempAnimation.addFrame( ResourceManager.getImage("objects.turret.turretFire1"), framedur);
+                tempAnimation.addFrame( ResourceManager.getImage("objects.turret.turretIdle"), framedur);
+            ResourceManager.addAnimation("turret.fire", tempAnimation);
+                tempAnimation = new Animation("idle", false);
+                tempAnimation.addFrame(ResourceManager.getImage("objects.player.playerBase"),0);
+            //Robot Forms
+            loadAnimation("idle", "player.basic.idle", "objects.player.playerBasicIdle");
+            loadAnimation("move", "player.basic.move", "objects.player.playerBasicMove",3,50,true);
+            loadAnimation("idle", "player.push.idle", "objects.player.playerPushIdle");
+            loadAnimation("move", "player.push.move", "objects.player.playerPushMove",3,50,true);
+            loadAnimation("idle", "player.crush.idle", "objects.player.playerCrushIdle");
+            loadAnimation("move", "player.crush.move", "objects.player.playerCrushMove",3,50,true);
+             /*   tempAnimation = new Animation("idle", false);
+                tempAnimation.addFrame(ResourceManager.getImage("objects.player.playerPush"),0);
+            ResourceManager.addAnimation("player.push.idle", tempAnimation);
+                tempAnimation = new Animation("idle", false);
+                tempAnimation.addFrame(ResourceManager.getImage("objects.player.playerCrush"),0);
+            ResourceManager.addAnimation("player.crush.idle", tempAnimation);
+            
+                tempAnimation = new Animation("normal", false);                
+                tempAnimation.addFrame(ResourceManager.getImage("objects.basicdroid.basicdroid"),0);
+            ResourceManager.addAnimation("basicdroid.normal", tempAnimation);
+    
+                tempAnimation = new Animation("normal", false);                
+                tempAnimation.addFrame(ResourceManager.getImage("objects.basicdroid.basicdroid"),0);
+            ResourceManager.addAnimation("basicdroid.normal", tempAnimation);
+            */
+            loadAnimation("idle", "projectiles.push","objects.projectiles.push.push",5,50, false);
+            loadAnimation("idle", "projectiles.crush","objects.projectiles.crush.crush",5,50, false);
+	}
+
+	public void initWorld()
+	{
+            world = new World(cellWidth,cellHeight,numCells,numCells);
+            mapLoader = new MapLoader(world);
+            mapLoader.loadMap("World.map");
+	}
+	
+	public void setScreen(int screen)
+	{
+            currentScreen = screen;
+            if(world.isGameStarted())
+            {
+                menuManager.setMenu("Main Menu");
+                ((MainMenu)menuManager.getCurrentMenu()).changeToResume();
+            }
+	}
+	
+	public void render()
+	{
+            BufferStrategy bs = frame.getBufferStrategy();
+            if(!bs.contentsLost())
+            {
+                Graphics2D g = (Graphics2D)bs.getDrawGraphics();
+                if(windowed)
+                {
+                    Point p1 = frame.getContentPane().getLocationOnScreen();
+                    Point p2 = frame.getLocationOnScreen(); 
+                    g.translate( p1.getX()-p2.getX(),p1.getY()-p2.getY());
+                }
+
+                if(currentScreen==GAME_SCREEN)
+                {
+                    if(!dialogue.getShowStatus()){
+                        world.render(GUI.getOffset(), GUI.getOffset()+hud.getHeight(),g );			
+                        hud.draw(0,0,g);
+                    }
+                    else{
+                        world.render(GUI.getOffset(), GUI.getOffset()+hud.getHeight(),g );			
+                        hud.draw(0,0,g);
+                        dialogue.render(250, GUI.getScreenHeight()-250+30, g);                            
+                    }
+                }
+                else
+                {
+                    menuManager.getCurrentMenu().render(g);
+                }
+                g.dispose();
+
+                bs.show();
+
+                Toolkit.getDefaultToolkit().sync();
+            }
+	}
+	
+	public void checkInput()
+	{
+            switch(currentScreen)
+            {
+                case MENU_SCREEN:
+                    Menu currentMenu = menuManager.getCurrentMenu();
+                    if(InputManager.keyDownOnce(KeyEvent.VK_DOWN))
+                            currentMenu.down();
+                    else if(InputManager.keyDownOnce(KeyEvent.VK_UP))
+                            currentMenu.up();
+                    else if(InputManager.keyDownOnce(KeyEvent.VK_LEFT))
+                            currentMenu.left();
+                    else if(InputManager.keyDownOnce(KeyEvent.VK_RIGHT))
+                            currentMenu.right();
+                    else if(InputManager.keyDownOnce(KeyEvent.VK_ENTER))
+                            currentMenu.enter();
+                    break;
+
+                case GAME_SCREEN:
+                    if(InputManager.keyDownOnce(KeyEvent.VK_ESCAPE))
+                        setScreen(MENU_SCREEN);
+                    if(dialogue.getShowStatus()){
+                        if(InputManager.keyDownOnce(KeyEvent.VK_SPACE)){
+                            if(!dialogue.getShownAll()){
+                                if(dialogue.getIfFilledBuffert()){
+                                    dialogue.resetShowBuffert();
+                                    dialogue.buildFrameBuffert();
+                                }
+                                else{
+                                    dialogue.fillBuffert();
+                                }
+                            }
+                            else{
+                                if(dialogue.getIfFilledBuffert()){
+                                    dialogue.showDialogue(false);
+                                }
+                                else{
+                                    dialogue.fillBuffert();
+                                }
+                            }
+                        }
+                    }
+                    break;
+            }
+	}
+	
+	public void run()
+	{
+		initResources();
+		initWorld();
+		initMenus();
+		hud.init();	
+		frame.createBufferStrategy(2);
+		
+		startTime = System.currentTimeMillis();		
+		running = true;
+		setScreen(MENU_SCREEN);
+				
+		while(running)
+		{
+                    currentTime = System.currentTimeMillis()-startTime;
+                    elapsedTime = currentTime - lastTime;			
+
+                    if(elapsedTime < 100)
+                    {
+                        input.poll();
+
+                        switch(currentScreen)
+                        {
+                                case GAME_SCREEN:
+                                    if(!dialogue.getShowStatus()){
+                                        world.update( elapsedTime );	
+                                        world.checkCollisions();
+                                        world.getPlayer().doActions();
+                                    }
+                                    else{
+
+                                    }
+                                case MENU_SCREEN:
+                                        checkInput();
+                                        render();
+                                    break;
+                        }			                           
+                    }
+                    lastTime = currentTime;                        
+
+                    try{ Thread.sleep(15);}
+                    catch(InterruptedException e){ e.printStackTrace(); }		
+
+		}
+		
+		System.exit(0);
+	}
+	
+	public void exit(){ running = false;System.exit(0); }
+	
+	private class FrameClose extends WindowAdapter {
+        @Override
+            public void windowClosing(final WindowEvent e) {
+                running = false;
+        }
+    }
+}

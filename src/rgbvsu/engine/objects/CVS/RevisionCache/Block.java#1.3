@@ -1,0 +1,106 @@
+package rgbvsu.engine.objects;
+
+import java.awt.Color;
+import java.awt.Image;
+import java.util.ArrayList;
+import rgbvsu.ResourceManager;
+import rgbvsu.engine.objects.*;
+import rgbvsu.engine.World;
+import rgbvsu.engine.util.CollisionMath;
+import rgbvsu.engine.util.Sprite;
+
+public class Block extends GameObject
+{
+	int destinationX, destinationY;
+	int step;
+	boolean movable, breakable;
+        Image image;
+	
+	public Block(World world, Color color, boolean movable, boolean breakable)
+	{
+		super(world,world.getCellWidth(),world.getCellHeight());
+		step = 5;
+		this.movable = movable;
+                this.breakable = breakable;
+		setColor(color);
+		resetDestination();
+                String imagePath = "";
+                if(movable)
+                    imagePath = "objects.misc.boxMovable";
+                else if(breakable)
+                    imagePath = "objects.misc.boxBreakable";
+                else
+                    imagePath = "objects.misc.boxStatic";
+                image = ResourceManager.getImage(imagePath);
+	}
+	        
+	public void resetDestination()
+	{
+		destinationX = (int)getX();destinationY=(int)getY();
+	}
+	
+	public boolean isMoving()
+	{
+		return destinationX!=getX() || destinationY!=getY();
+	}
+	
+        @Override
+        public Sprite getSprite()
+        {
+            return null;
+        }
+        
+        @Override
+        public void checkCollision(GameObject otherobj)
+	{
+		if(isMoving() || !otherobj.alive() || !alive())
+			return;
+		if( otherobj instanceof PushProjectile )
+		{			
+                    PushProjectile p = (PushProjectile)otherobj;
+                    if( movable && CollisionMath.Intersects(this, otherobj))				
+                    {
+
+                        float checkX = (getX()+getWidth()*(0.5f+p.getPushX()));
+                        float checkY = (getY()+getHeight()*(0.5f+p.getPushY()));
+                        ArrayList<GameObject> objectsAt = world.getCurrentRoom().getObjectsAt(checkX, checkY, this);
+                        p.kill();
+                        for(int i = 0;i<objectsAt.size();i++)
+                        {
+                            if(objectsAt.get(i) instanceof Block)
+                                return;
+
+                        }
+
+                        destinationX = (int)(getX()+getWidth()*p.getPushX());
+                        destinationY = (int)(getY()+getHeight()*p.getPushY());
+                    }
+			
+		}
+		else if( otherobj instanceof PressurePlatform)
+		{
+			otherobj.checkCollision(this);
+		}
+		else if( otherobj instanceof Projectile)
+			otherobj.checkCollision(this);
+	}
+        
+        @Override
+	public void update(long time)
+	{
+		if(getX() != destinationX)
+			translate(step*Math.signum(destinationX-getX()), 0);
+		if(getY() != destinationY)
+			translate(0,step*Math.signum(destinationY-getY()));
+	}
+        @Override
+	public void draw(int x, int y, java.awt.Graphics2D g)
+	{
+            g.drawImage(image, x+getDrawX(),y+getDrawY(),null);
+		/*g.setPaint(getColor());
+		g.fillRect(x+(int)getX(),y+(int)getY(), (int)getWidth(), (int)getHeight());
+		g.setPaint(getColor().darker());
+		g.fillRect(x+(int)getX()+6,y+(int)getY()+6, (int)getWidth()-12, (int)getHeight()-12);*/
+	}
+	
+}

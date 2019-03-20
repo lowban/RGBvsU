@@ -1,0 +1,43 @@
+package rgbvsu.engine.objects;
+
+import java.awt.Graphics2D;
+import rgbvsu.engine.World;
+import rgbvsu.engine.util.CollisionMath;
+import rgbvsu.engine.ai.Enemy;
+import rgbvsu.engine.util.Sprite;
+
+
+public class BasicDroid extends Enemy
+{
+	public BasicDroid(World world, float w, float h)
+	{
+		super(world,w,h);
+	}
+
+        @Override
+        public Sprite getSprite()
+        {
+            return null;
+        }	
+        
+        @Override
+	public void checkCollision(GameObject otherobj)
+	{
+		if(CollisionMath.Intersects(this, otherobj))
+			getAI().collisionResponse(otherobj);
+	}
+	
+        @Override
+	public void update(long time)
+	{
+		
+	}
+	
+        @Override
+	public void draw(int x, int y, Graphics2D g)
+	{
+		g.setColor(getColor());
+		g.fillOval((int)(x+getX()),(int)(y+getY()), (int)getWidth(), (int)getHeight());
+	}
+	
+}
