@@ -1,0 +1,2 @@
+1;Game Started.. >>>Controls are Arrow Keys for movement, Space for action, Q E for cycling through forms.
+2;Now this is interesting, death! KIEL!
