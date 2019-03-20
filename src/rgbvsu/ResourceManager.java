@@ -1,0 +1,63 @@
+package rgbvsu;
+
+import java.awt.Font;
+import java.awt.Image;
+import java.util.HashMap;
+import javax.sound.sampled.Clip;
+import rgbvsu.engine.util.Animation;
+
+public class ResourceManager
+{
+	static HashMap<String,Image> graphics = new HashMap<>();
+        static HashMap<String,Animation> animations = new HashMap<>();
+        static HashMap<Integer, String> dialogues = new HashMap<>();
+        static HashMap<String, Clip> sounds = new HashMap<>();
+	static HashMap<String, Font> fonts = new HashMap<>();
+        
+        public static void addAnimation(String key, Animation anim)
+        {
+            animations.put(key,anim);
+        }
+        
+        public static Animation getAnimation(String key)
+        {
+            return new Animation(animations.get(key));
+        }
+        
+	public static Image addImage(String key, Image image)
+	{
+            graphics.put(key, image);
+            return image;
+	}
+	
+	public static Image getImage(String key)
+	{
+            return graphics.get(key);
+	}
+        
+        public static void addDialogue(int key, String dialogue)
+        {
+            dialogues.put(key, dialogue);
+        }
+        
+        public static String getDialogue(int key)
+        {
+            return dialogues.get(key);
+        }
+        
+        public static void addSound(String key, Clip sound){
+            sounds.put(key, sound);
+        }
+        
+        public static Clip getSound(String key){
+            return sounds.get(key);
+        }
+        public static void addFont(String key, Font font)
+        {
+            fonts.put(key,font);
+        }
+        public static Font getFont(String key)
+        {
+            return fonts.get(key);
+        }
+    }
